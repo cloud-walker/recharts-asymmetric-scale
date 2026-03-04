@@ -45,7 +45,47 @@ const chartCases: Array<{ title: string; data: MonthlyAmount[] }> = [
   },
 ];
 
+function getAmountDomain(data: MonthlyAmount[]): [number, number] {
+  const minAmount = Math.min(...data.map((entry) => entry.amount), 0);
+  const maxAmount = Math.max(...data.map((entry) => entry.amount), 0);
+
+  if (minAmount === maxAmount) {
+    return [minAmount, minAmount + 1];
+  }
+
+  return [minAmount, maxAmount];
+}
+
+function getQuantityDomain(
+  data: MonthlyAmount[],
+  amountDomain: [number, number],
+): [number, number] {
+  const [, amountMax] = amountDomain;
+  const amountSpan = amountDomain[1] - amountDomain[0];
+  const quantityMax = Math.max(...data.map((entry) => entry.quantity), 0);
+
+  if (quantityMax === 0) {
+    return [0, 1];
+  }
+
+  if (amountMax <= 0 || amountSpan <= 0) {
+    return [0, quantityMax];
+  }
+
+  const zeroRatio = amountMax / amountSpan;
+
+  if (zeroRatio >= 1) {
+    return [0, quantityMax];
+  }
+
+  const quantityMin = (quantityMax * (zeroRatio - 1)) / zeroRatio;
+  return [quantityMin, quantityMax];
+}
+
 function CaseChart({ title, data }: { title: string; data: MonthlyAmount[] }) {
+  const amountDomain = getAmountDomain(data);
+  const quantityDomain = getQuantityDomain(data, amountDomain);
+
   return (
     <section
       style={{
@@ -63,13 +103,18 @@ function CaseChart({ title, data }: { title: string; data: MonthlyAmount[] }) {
         >
           <CartesianGrid strokeDasharray="3 3" vertical={false} />
           <XAxis dataKey="month" />
-          <YAxis yAxisId="amount" tickFormatter={formatEur} />
+          <YAxis
+            yAxisId="amount"
+            tickFormatter={formatEur}
+            domain={amountDomain}
+          />
           <YAxis
             yAxisId="quantity"
             orientation="right"
             tickFormatter={formatQty}
             allowDecimals={false}
             width={40}
+            domain={quantityDomain}
           />
           <Tooltip
             formatter={(value, name) => {
