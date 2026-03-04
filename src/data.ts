@@ -1,10 +1,10 @@
-export type MonthlyAmount = {
+export type DataPoint = {
   month: string;
   amount: number;
   quantity: number;
 };
 
-export const dataNoNegative: MonthlyAmount[] = [
+export const dataNoNegative: DataPoint[] = [
   { month: "Gen", amount: 120, quantity: 12 },
   { month: "Feb", amount: 180, quantity: 16 },
   { month: "Mar", amount: 90, quantity: 9 },
@@ -19,7 +19,7 @@ export const dataNoNegative: MonthlyAmount[] = [
   { month: "Dic", amount: 220, quantity: 20 },
 ];
 
-export const dataHugeNegativeSmallPositive: MonthlyAmount[] = [
+export const dataHugeNegativeSmallPositive: DataPoint[] = [
   { month: "Gen", amount: 120, quantity: 8 },
   { month: "Feb", amount: -14000, quantity: 22 },
   { month: "Mar", amount: 90, quantity: 7 },
@@ -34,7 +34,7 @@ export const dataHugeNegativeSmallPositive: MonthlyAmount[] = [
   { month: "Dic", amount: -17000, quantity: 23 },
 ];
 
-export const dataHugePositiveSmallNegative: MonthlyAmount[] = [
+export const dataHugePositiveSmallNegative: DataPoint[] = [
   { month: "Gen", amount: -120, quantity: 8 },
   { month: "Feb", amount: 14000, quantity: 22 },
   { month: "Mar", amount: -90, quantity: 7 },
@@ -49,7 +49,7 @@ export const dataHugePositiveSmallNegative: MonthlyAmount[] = [
   { month: "Dic", amount: 17000, quantity: 23 },
 ];
 
-export const dataBalancedPositiveNegative: MonthlyAmount[] = [
+export const dataBalancedPositiveNegative: DataPoint[] = [
   { month: "Gen", amount: 850, quantity: 14 },
   { month: "Feb", amount: -910, quantity: 15 },
   { month: "Mar", amount: 1020, quantity: 16 },

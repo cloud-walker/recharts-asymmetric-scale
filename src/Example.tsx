@@ -16,8 +16,9 @@ import {
   dataHugeNegativeSmallPositive,
   dataHugePositiveSmallNegative,
   dataNoNegative,
-  type MonthlyAmount,
+  type DataPoint,
 } from "./data";
+import { useMemo } from "react";
 
 function formatEur(value: number) {
   return Intl.NumberFormat("it-IT", {
@@ -31,6 +32,22 @@ function formatQty(value: number) {
     maximumFractionDigits: 0,
   }).format(Math.round(value));
 }
+
+const chartCases: Array<{ title: string; data: DataPoint[] }> = [
+  { title: "1) Senza valori negativi", data: dataNoNegative },
+  {
+    title: "2) Negativi enormi, positivi piccoli",
+    data: dataHugeNegativeSmallPositive,
+  },
+  {
+    title: "3) Positivi enormi, negativi piccoli",
+    data: dataHugePositiveSmallNegative,
+  },
+  {
+    title: "4) Positivi e negativi simili",
+    data: dataBalancedPositiveNegative,
+  },
+];
 
 function getAxisTicks(domain: [number, number], tickCount = 6): number[] {
   const [min, max] = domain;
@@ -63,23 +80,56 @@ function getAxisTicks(domain: [number, number], tickCount = 6): number[] {
   return [...ticks].sort((a, b) => a - b);
 }
 
-const chartCases: Array<{ title: string; data: MonthlyAmount[] }> = [
-  { title: "1) Senza valori negativi", data: dataNoNegative },
-  {
-    title: "2) Negativi enormi, positivi piccoli",
-    data: dataHugeNegativeSmallPositive,
-  },
-  {
-    title: "3) Positivi enormi, negativi piccoli",
-    data: dataHugePositiveSmallNegative,
-  },
-  {
-    title: "4) Positivi e negativi simili",
-    data: dataBalancedPositiveNegative,
-  },
-];
+function getAxisTicksNative(domain: [number, number], tickCount = 6): number[] {
+  const [min, max] = domain;
 
-function getAmountDomain(data: MonthlyAmount[]): [number, number] {
+  if (!Number.isFinite(min) || !Number.isFinite(max)) {
+    return [0];
+  }
+
+  if (min === max) {
+    return [min];
+  }
+
+  const safeMin = Math.min(min, max);
+  const safeMax = Math.max(min, max);
+  const span = safeMax - safeMin;
+  const targetTickCount = Math.max(2, tickCount);
+  const roughStep = span / (targetTickCount - 1);
+  const stepPower = 10 ** Math.floor(Math.log10(roughStep));
+  const stepError = roughStep / stepPower;
+
+  let stepFactor = 1;
+  if (stepError >= 7.5) {
+    stepFactor = 10;
+  } else if (stepError >= 3.5) {
+    stepFactor = 5;
+  } else if (stepError >= 1.5) {
+    stepFactor = 2;
+  }
+
+  const step = stepFactor * stepPower;
+  const decimals = Math.max(0, -Math.floor(Math.log10(step)) + 2);
+  const roundTick = (value: number) => Number(value.toFixed(decimals));
+  const firstTick = Math.ceil(safeMin / step) * step;
+  const lastTick = Math.floor(safeMax / step) * step;
+  const ticks = new Set<number>();
+
+  for (let tick = firstTick; tick <= lastTick + step / 2; tick += step) {
+    ticks.add(roundTick(tick));
+  }
+
+  ticks.add(safeMin);
+  ticks.add(safeMax);
+
+  if (safeMin <= 0 && safeMax >= 0) {
+    ticks.add(0);
+  }
+
+  return [...ticks].sort((a, b) => a - b);
+}
+
+function getAmountDomain(data: DataPoint[]): [number, number] {
   const minAmount = Math.min(...data.map((entry) => entry.amount));
   const maxAmount = Math.max(...data.map((entry) => entry.amount));
 
@@ -102,7 +152,7 @@ function getAmountDomain(data: MonthlyAmount[]): [number, number] {
 }
 
 function getQuantityDomain(
-  data: MonthlyAmount[],
+  data: DataPoint[],
   amountDomain: [number, number],
 ): [number, number] {
   const [, amountMax] = amountDomain;
@@ -127,11 +177,25 @@ function getQuantityDomain(
   return [quantityMin, quantityMax];
 }
 
-function CaseChart({ title, data }: { title: string; data: MonthlyAmount[] }) {
-  const amountDomain = getAmountDomain(data);
-  const quantityDomain = getQuantityDomain(data, amountDomain);
-  const amountTicks = getAxisTicks(amountDomain, 6);
-  const quantityTicks = getAxisTicks(quantityDomain, 6);
+function CaseChart({ title, data }: { title: string; data: DataPoint[] }) {
+  const { amountDomain, quantityDomain, amountTicks, quantityTicks } =
+    useMemo(() => {
+      const amountDomain = getAmountDomain(data);
+      const quantityDomain = getQuantityDomain(data, amountDomain);
+      const tickFunctions = {
+        d3: getAxisTicks,
+        native: getAxisTicksNative,
+      };
+      const getTicks = tickFunctions.native;
+      const amountTicks = getTicks(amountDomain, 6);
+      const quantityTicks = getTicks(quantityDomain, 6);
+      return {
+        amountDomain,
+        quantityDomain,
+        amountTicks,
+        quantityTicks,
+      };
+    }, [data]);
 
   return (
     <section
