@@ -46,14 +46,25 @@ const chartCases: Array<{ title: string; data: MonthlyAmount[] }> = [
 ];
 
 function getAmountDomain(data: MonthlyAmount[]): [number, number] {
-  const minAmount = Math.min(...data.map((entry) => entry.amount), 0);
-  const maxAmount = Math.max(...data.map((entry) => entry.amount), 0);
+  const minAmount = Math.min(...data.map((entry) => entry.amount));
+  const maxAmount = Math.max(...data.map((entry) => entry.amount));
 
-  if (minAmount === maxAmount) {
+  if (minAmount >= 0) {
+    if (maxAmount === 0) {
+      return [0, 1];
+    }
+
+    return [0, maxAmount];
+  }
+
+  const negativeMagnitude = Math.abs(minAmount);
+  const expandedPositiveMax = Math.max(maxAmount, negativeMagnitude * 3);
+
+  if (expandedPositiveMax === minAmount) {
     return [minAmount, minAmount + 1];
   }
 
-  return [minAmount, maxAmount];
+  return [minAmount, expandedPositiveMax];
 }
 
 function getQuantityDomain(
