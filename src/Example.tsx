@@ -10,6 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { scaleLinear } from "d3-scale";
 import {
   dataBalancedPositiveNegative,
   dataHugeNegativeSmallPositive,
@@ -26,7 +27,40 @@ function formatEur(value: number) {
 }
 
 function formatQty(value: number) {
-  return Intl.NumberFormat("it-IT").format(value);
+  return Intl.NumberFormat("it-IT", {
+    maximumFractionDigits: 0,
+  }).format(Math.round(value));
+}
+
+function getAxisTicks(domain: [number, number], tickCount = 6): number[] {
+  const [min, max] = domain;
+
+  if (!Number.isFinite(min) || !Number.isFinite(max)) {
+    return [0];
+  }
+
+  if (min === max) {
+    return [min];
+  }
+
+  const safeMin = Math.min(min, max);
+  const safeMax = Math.max(min, max);
+  const baseTicks = scaleLinear()
+    .domain([safeMin, safeMax])
+    .nice(tickCount)
+    .ticks(tickCount);
+  const ticks = new Set<number>(
+    baseTicks.filter((tick) => tick >= safeMin && tick <= safeMax),
+  );
+
+  ticks.add(safeMin);
+  ticks.add(safeMax);
+
+  if (safeMin <= 0 && safeMax >= 0) {
+    ticks.add(0);
+  }
+
+  return [...ticks].sort((a, b) => a - b);
 }
 
 const chartCases: Array<{ title: string; data: MonthlyAmount[] }> = [
@@ -96,6 +130,8 @@ function getQuantityDomain(
 function CaseChart({ title, data }: { title: string; data: MonthlyAmount[] }) {
   const amountDomain = getAmountDomain(data);
   const quantityDomain = getQuantityDomain(data, amountDomain);
+  const amountTicks = getAxisTicks(amountDomain, 6);
+  const quantityTicks = getAxisTicks(quantityDomain, 6);
 
   return (
     <section
@@ -110,7 +146,7 @@ function CaseChart({ title, data }: { title: string; data: MonthlyAmount[] }) {
       <ResponsiveContainer width="100%" height={280}>
         <ComposedChart
           data={data}
-          margin={{ top: 20, right: 16, left: 8, bottom: 4 }}
+          margin={{ top: 20, right: 20, left: 20, bottom: 4 }}
         >
           <CartesianGrid strokeDasharray="3 3" vertical={false} />
           <XAxis dataKey="month" />
@@ -118,14 +154,19 @@ function CaseChart({ title, data }: { title: string; data: MonthlyAmount[] }) {
             yAxisId="amount"
             tickFormatter={formatEur}
             domain={amountDomain}
+            ticks={amountTicks}
+            width={110}
+            tickMargin={8}
           />
           <YAxis
             yAxisId="quantity"
             orientation="right"
             tickFormatter={formatQty}
             allowDecimals={false}
-            width={40}
+            width={56}
             domain={quantityDomain}
+            ticks={quantityTicks}
+            tickMargin={8}
           />
           <Tooltip
             formatter={(value, name) => {
