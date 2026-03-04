@@ -1,4 +1,5 @@
 import {
+  Area,
   Bar,
   CartesianGrid,
   Cell,
@@ -11,27 +12,23 @@ import {
   getNiceTickValues,
 } from "recharts";
 import { scaleLinear } from "d3-scale";
-
-const data = [
-  { month: "Gen", amount: 120 },
-  { month: "Feb", amount: -1400 },
-  { month: "Mar", amount: 90 },
-  { month: "Apr", amount: -1100 },
-  { month: "Mag", amount: 140 },
-  { month: "Giu", amount: -1700 },
-  { month: "Lug", amount: 70 },
-  { month: "Ago", amount: -1300 },
-  { month: "Set", amount: 100 },
-  { month: "Ott", amount: -1600 },
-  { month: "Nov", amount: 85 },
-  { month: "Dic", amount: -1200 },
-];
+import {
+  dataBalancedPositiveNegative,
+  dataHugeNegativeSmallPositive,
+  dataHugePositiveSmallNegative,
+  dataNoNegative,
+  type MonthlyAmount,
+} from "./data";
 
 function formatEur(value: number) {
   return Intl.NumberFormat("it-IT", {
     style: "currency",
     currency: "EUR",
   }).format(value);
+}
+
+function formatQty(value: number) {
+  return Intl.NumberFormat("it-IT").format(value);
 }
 
 type AxisScale = {
@@ -100,50 +97,116 @@ function createAsymmetricScale(
   return scale;
 }
 
-const negativeMin = Math.min(0, ...data.map((item) => item.amount));
-const positiveMax = Math.max(0, ...data.map((item) => item.amount));
-console.log("niceTicks", getNiceTickValues([-1700, 140], 6, true));
+const chartCases: Array<{ title: string; data: MonthlyAmount[] }> = [
+  { title: "1) Senza valori negativi", data: dataNoNegative },
+  {
+    title: "2) Negativi enormi, positivi piccoli",
+    data: dataHugeNegativeSmallPositive,
+  },
+  {
+    title: "3) Positivi enormi, negativi piccoli",
+    data: dataHugePositiveSmallNegative,
+  },
+  {
+    title: "4) Positivi e negativi simili",
+    data: dataBalancedPositiveNegative,
+  },
+];
 
-const asymmetricScale = createAsymmetricScale(negativeMin, positiveMax, 0.2);
+function CaseChart({ title, data }: { title: string; data: MonthlyAmount[] }) {
+  const negativeMin = Math.min(0, ...data.map((item) => item.amount));
+  const positiveMax = Math.max(0, ...data.map((item) => item.amount));
+  const asymmetricScale = createAsymmetricScale(negativeMin, positiveMax, 0.2);
+  const ticks = getNiceTickValues([negativeMin, positiveMax], 6, true);
 
-export function Example() {
   return (
-    <div style={{ padding: 32 }}>
-      <h2 style={{ fontFamily: "sans-serif", marginBottom: 24 }}>
-        Spese mensili
-      </h2>
-      <ResponsiveContainer width="100%" height={400}>
+    <section
+      style={{
+        border: "1px solid #e5e7eb",
+        borderRadius: 12,
+        padding: 16,
+        background: "#fff",
+      }}
+    >
+      <h3 style={{ fontFamily: "sans-serif", margin: "0 0 12px" }}>{title}</h3>
+      <ResponsiveContainer width="100%" height={280}>
         <ComposedChart
           data={data}
-          margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+          margin={{ top: 20, right: 16, left: 8, bottom: 4 }}
         >
           <CartesianGrid strokeDasharray="3 3" vertical={false} />
           <XAxis dataKey="month" />
           <YAxis
-            // domain={["dataMin", "dataMax"]}
+            yAxisId="amount"
             tickFormatter={formatEur}
-            ticks={[-1800, 0, 450]}
+            ticks={ticks}
             scale={asymmetricScale}
           />
+          <YAxis
+            yAxisId="quantity"
+            orientation="right"
+            domain={[0, "dataMax"]}
+            tickFormatter={formatQty}
+            allowDecimals={false}
+            width={40}
+          />
           <Tooltip
-            formatter={(value) => {
+            formatter={(value, name) => {
               if (typeof value !== "number") {
                 throw new Error("Unexpected value type");
               }
-              return formatEur(value);
+
+              if (name === "amount") {
+                return [formatEur(value), "Amount"];
+              }
+
+              return [formatQty(value), "Quantity"];
             }}
           />
           <ReferenceLine y={0} stroke="#666" strokeWidth={2} />
-          <Bar dataKey="amount" radius={[4, 4, 0, 0]}>
+          <Area
+            yAxisId="quantity"
+            type="monotone"
+            dataKey="quantity"
+            stroke="#60a5fa"
+            fill="#93c5fd"
+            fillOpacity={0.35}
+          />
+          <Bar yAxisId="amount" dataKey="amount" radius={[4, 4, 0, 0]}>
             {data.map((entry, index) => (
               <Cell
-                key={index}
+                key={`${entry.month}-${index}`}
                 fill={entry.amount >= 0 ? "#4ade80" : "#f87171"}
               />
             ))}
           </Bar>
         </ComposedChart>
       </ResponsiveContainer>
+    </section>
+  );
+}
+
+export function Example() {
+  return (
+    <div style={{ padding: 32, background: "#f8fafc", minHeight: "100vh" }}>
+      <h2 style={{ fontFamily: "sans-serif", marginBottom: 24 }}>
+        Spese mensili - casi di test
+      </h2>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))",
+          gap: 16,
+        }}
+      >
+        {chartCases.map((chartCase) => (
+          <CaseChart
+            key={chartCase.title}
+            title={chartCase.title}
+            data={chartCase.data}
+          />
+        ))}
+      </div>
     </div>
   );
 }
